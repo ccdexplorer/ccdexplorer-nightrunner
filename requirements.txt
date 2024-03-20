@@ -1,0 +1,12 @@
+ccdefundamentals
+aiohttp
+asyncio
+requests
+GitPython
+pandas
+grpcio
+grpcio-tools
+grpclib
+betterproto==2.0.0b5
+apscheduler==4.0.0a4
+python-dotenv
