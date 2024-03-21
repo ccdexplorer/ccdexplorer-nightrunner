@@ -1,9 +1,9 @@
 from git import Repo
 from rich.console import Console
 from .utils import Utils, AnalysisType
-from ccdefundamentals.GRPCClient import GRPCClient
+from ccdexplorer_fundamentals.GRPCClient import GRPCClient
 from pymongo import ReplaceOne
-from ccdefundamentals.GRPCClient.CCD_Types import ProtocolVersions
+from ccdexplorer_fundamentals.GRPCClient.CCD_Types import ProtocolVersions
 
 
 console = Console()

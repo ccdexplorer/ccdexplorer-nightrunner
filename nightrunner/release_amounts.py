@@ -2,7 +2,7 @@ from git import Repo
 from rich.console import Console
 from .utils import Utils, AnalysisType
 from pymongo import ReplaceOne
-from ccdefundamentals.ccdscan import CCDScan
+from ccdexplorer_fundamentals.ccdscan import CCDScan
 
 
 console = Console()

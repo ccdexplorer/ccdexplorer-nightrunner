@@ -2,7 +2,7 @@ from git import Repo
 from rich.console import Console
 from .utils import Utils, PreRender
 from pymongo import ReplaceOne
-from ccdefundamentals.mongodb import Collections
+from ccdexplorer_fundamentals.mongodb import Collections
 from pymongo.collection import Collection
 import datetime as dt
 

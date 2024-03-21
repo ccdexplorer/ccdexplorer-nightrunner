@@ -7,11 +7,11 @@ from nightrunner import NightRunner
 from apscheduler import AsyncScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from ccdefundamentals.GRPCClient import GRPCClient
+from ccdexplorer_fundamentals.GRPCClient import GRPCClient
 
-from ccdefundamentals.GRPCClient.CCD_Types import *  # noqa: F403
-from ccdefundamentals.tooter import Tooter
-from ccdefundamentals.mongodb import (
+from ccdexplorer_fundamentals.GRPCClient.CCD_Types import *  # noqa: F403
+from ccdexplorer_fundamentals.tooter import Tooter
+from ccdexplorer_fundamentals.mongodb import (
     MongoDB,
     MongoMotor,
 )

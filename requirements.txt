@@ -1,4 +1,4 @@
-ccdefundamentals
+ccdexplorer-fundamentals
 aiohttp
 asyncio
 requests

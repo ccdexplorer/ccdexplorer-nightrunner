@@ -1,4 +1,4 @@
-from ccdefundamentals.mongodb import (
+from ccdexplorer_fundamentals.mongodb import (
     MongoDB,
     Collections,
     CollectionsUtilities,

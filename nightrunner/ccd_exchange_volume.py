@@ -1,12 +1,12 @@
 from git import Repo
 from rich.console import Console
 from .utils import Utils, AnalysisType
-from ccdefundamentals.GRPCClient import GRPCClient
+from ccdexplorer_fundamentals.GRPCClient import GRPCClient
 import dateutil
 import requests
 import datetime as dt
 from pymongo import ReplaceOne
-from ccdefundamentals.mongodb import (
+from ccdexplorer_fundamentals.mongodb import (
     MongoDB,
     Collections,
     MongoMotor,

@@ -1,9 +1,9 @@
 # ruff: noqa: F403, F405, E402, E501, E722
 from git import Repo
-from ccdefundamentals.GRPCClient import GRPCClient
-from ccdefundamentals.GRPCClient.CCD_Types import *
-from ccdefundamentals.tooter import Tooter
-from ccdefundamentals.mongodb import (
+from ccdexplorer_fundamentals.GRPCClient import GRPCClient
+from ccdexplorer_fundamentals.GRPCClient.CCD_Types import *
+from ccdexplorer_fundamentals.tooter import Tooter
+from ccdexplorer_fundamentals.mongodb import (
     MongoDB,
     Collections,
     CollectionsUtilities,
@@ -11,7 +11,7 @@ from ccdefundamentals.mongodb import (
 )
 
 from pymongo.collection import Collection
-from ccdefundamentals.tooter import TooterChannel, TooterType
+from ccdexplorer_fundamentals.tooter import TooterChannel, TooterType
 from env import *
 from rich.console import Console
 import urllib3

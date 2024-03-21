@@ -1,7 +1,7 @@
 from git import Repo
 from rich.console import Console
 from .utils import Utils, AnalysisType
-from ccdefundamentals.GRPCClient import GRPCClient
+from ccdexplorer_fundamentals.GRPCClient import GRPCClient
 from pymongo import ReplaceOne
 
 

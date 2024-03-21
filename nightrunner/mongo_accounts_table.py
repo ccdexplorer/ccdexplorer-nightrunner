@@ -2,11 +2,11 @@ from git import Repo
 from rich.console import Console
 from .utils import Utils, PreRender
 from pymongo import ReplaceOne, DESCENDING, ASCENDING
-from ccdefundamentals.mongodb import Collections
+from ccdexplorer_fundamentals.mongodb import Collections
 from pymongo.collection import Collection
 import datetime as dt
 from datetime import timedelta
-from ccdefundamentals.GRPCClient.CCD_Types import CCD_BlockItemSummary
+from ccdexplorer_fundamentals.GRPCClient.CCD_Types import CCD_BlockItemSummary
 
 console = Console()
 
