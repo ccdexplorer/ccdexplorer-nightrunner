@@ -44,6 +44,7 @@ class AnalysisType(Enum):
     statistics_release_amounts = "statistics_release_amounts"
     statistics_mongo_transactions = "statistics_mongo_transactions"
     statistics_network_activity = "statistics_network_activity"
+    statistics_transaction_fees = "statistics_transaction_fees"
 
 
 class Utils:

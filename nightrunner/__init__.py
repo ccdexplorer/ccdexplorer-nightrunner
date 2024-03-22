@@ -29,6 +29,7 @@ from .mongo_transactions import MongoTransactions as _mongo_transactions
 from .mongo_tps_table import MongoTPSTable as _mongo_tps_table
 from .mongo_accounts_table import MongoAccountsTable as _mongo_accounts_table
 from .network_activity import NetworkActivity as _network_activity
+from .transaction_fees_over_time import TransactionFees as _transaction_fees
 
 urllib3.disable_warnings()
 console = Console()
@@ -48,6 +49,7 @@ class NightRunner(
     _network_activity,
     _mongo_tps_table,
     _mongo_accounts_table,
+    _transaction_fees,
 ):
     def __init__(
         self,
