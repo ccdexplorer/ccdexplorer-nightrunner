@@ -12,7 +12,7 @@ RUN pip install --user --no-cache-dir -r requirements.txt
 # Copy application files.
 COPY . .
 #
-RUN git clone https://github.com/sderuiter/concordium-network-accounts.git /home/git_dir
+RUN git clone https://github.com/ccdexplorer/ccdexplorer-accounts.git /home/git_dir
 RUN git config --global user.name "ceupdaterbot"
 RUN git config --global user.email "bot@ccdexplorer.io"
 RUN git config --global url.https://ceupdaterbot:{CE_BOT_TOKEN}@github.com/.insteadOf https://github.com/

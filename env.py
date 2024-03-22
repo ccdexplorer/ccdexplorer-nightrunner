@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+REPO_DIR = os.environ.get("REPO_DIR")
 BRANCH = os.environ.get("BRANCH", "dev")
 ENVIRONMENT = os.environ.get("ENVIRONMENT", "prod")
 MONGODB_PASSWORD = os.environ.get("MONGODB_PASSWORD")

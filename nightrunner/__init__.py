@@ -73,7 +73,7 @@ class NightRunner(
         ON_SERVER = os.environ.get("ON_SERVER", False)
 
         print(f"{ON_SERVER=}.")
-        repo_dir = "/Users/sander/Developer/CCD/concordium-network-accounts"
+        repo_dir = REPO_DIR
         if ON_SERVER:
             repo_dir = "/home/git_dir"
 
