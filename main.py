@@ -73,7 +73,10 @@ async def main():
         await scheduler.add_schedule(
             night_runner.perform_statistics_ccd_volume, IntervalTrigger(seconds=5 * 60)
         )
-
+        await scheduler.add_schedule(
+            night_runner.perform_statistics_transaction_fees,
+            IntervalTrigger(seconds=5 * 60),
+        )
         await scheduler.run_until_stopped()
         pass
 
