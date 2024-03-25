@@ -10,3 +10,4 @@ grpclib
 betterproto==2.0.0b5
 apscheduler==4.0.0a4
 python-dotenv
+httpx

@@ -1,20 +1,20 @@
+import datetime as dt
+import io
+from datetime import timedelta
+from enum import Enum
+from io import StringIO
+
+import dateutil.parser
+import pandas as pd
+from ccdexplorer_fundamentals.cis import MongoTypeTokensTag, MongoTypeTokenAddress
 from ccdexplorer_fundamentals.mongodb import (
-    MongoDB,
     Collections,
     CollectionsUtilities,
-    MongoMotor,
 )
-from pymongo.collection import Collection
-from enum import Enum
-import dateutil.parser
 from git import Commit
-import io
-from pymongo import ReplaceOne
-import pandas as pd
-from datetime import timedelta
-import datetime as dt
 from pandas import DataFrame
-from io import StringIO
+from pymongo import ReplaceOne
+from pymongo.collection import Collection
 
 
 class PreRender(Enum):
@@ -45,9 +45,95 @@ class AnalysisType(Enum):
     statistics_mongo_transactions = "statistics_mongo_transactions"
     statistics_network_activity = "statistics_network_activity"
     statistics_transaction_fees = "statistics_transaction_fees"
+    statistics_bridges_and_dexes = "statistics_bridges_and_dexes"
+    statistics_historical_exchange_rates = "statistics_historical_exchange_rates"
 
 
 class Utils:
+
+    def get_contracts_with_tag_info(self):
+        db_to_use = self.mainnet
+        contracts_with_tag_info: dict[str, MongoTypeTokensTag] = {}
+        token_tags = db_to_use[Collections.tokens_tags].find({})
+        for token_tag in token_tags:
+            for contract in token_tag["contracts"]:
+                contracts_with_tag_info[contract] = MongoTypeTokensTag(**token_tag)
+
+        return contracts_with_tag_info
+
+    def get_fungible_tokens_with_markup(self):
+        contracts_with_tag_info = self.get_contracts_with_tag_info()
+        db_to_use = self.mainnet
+        # get exchange rates
+        coll = self.utilities[CollectionsUtilities.exchange_rates]
+
+        exchange_rates = {x["token"]: x for x in coll.find({})}
+        exchange_rates["wBTC"] = exchange_rates["BTC"]
+        exchange_rates["wCCD"] = exchange_rates["CCD"]
+
+        # find fungible tokens
+        fungible_contracts = [
+            contract
+            for contract, token_tag in contracts_with_tag_info.items()
+            if token_tag.token_type == "fungible"
+        ]
+        # now onto the token_addresses
+        fungible_tokens_with_markup = {
+            x["_id"]: MongoTypeTokenAddress(**x)
+            for x in db_to_use[Collections.tokens_token_addresses_v2].find(
+                {"contract": {"$in": fungible_contracts}}
+            )
+        }
+
+        for address in fungible_tokens_with_markup.keys():
+            token_address_class = fungible_tokens_with_markup[address]
+            if token_address_class.contract in contracts_with_tag_info.keys():
+                token_address_class.tag_information = contracts_with_tag_info[
+                    token_address_class.contract
+                ]
+                if token_address_class.tag_information.token_type == "fungible":
+                    if token_address_class.tag_information.id in exchange_rates.keys():
+                        token_address_class.exchange_rate = exchange_rates[
+                            token_address_class.tag_information.id
+                        ]["rate"]
+                    else:
+                        token_address_class.exchange_rate = 0
+            else:
+                token_address_class.tag_information = None
+            fungible_tokens_with_markup[address] = token_address_class
+
+        return fungible_tokens_with_markup
+
+    def get_historical_rates(self):
+
+        exchange_rates_by_currency = dict({})
+        result = self.utilities[CollectionsUtilities.exchange_rates_historical].find({})
+
+        for x in result:
+            if not exchange_rates_by_currency.get(x["token"]):
+                exchange_rates_by_currency[x["token"]] = {}
+                exchange_rates_by_currency[x["token"]][x["date"]] = x["rate"]
+            else:
+                exchange_rates_by_currency[x["token"]][x["date"]] = x["rate"]
+
+        return exchange_rates_by_currency
+
+    def get_all_blocks_last_height(self):
+        result = list(
+            self.mainnet[Collections.blocks_per_day].find(
+                filter={},
+                projection={
+                    "_id": 0,
+                    "date": 1,
+                    "height_for_last_block": 1,
+                    "slot_time_for_last_block": 1,
+                },
+            )
+        )
+        block_end_of_day_dict = {x["height_for_last_block"]: x["date"] for x in result}
+        heights = list(block_end_of_day_dict.keys())
+        return heights, block_end_of_day_dict
+
     def get_exchanges(self):
         self.utilities: dict[CollectionsUtilities, Collection]
         result = self.utilities[CollectionsUtilities.labeled_accounts].find(
@@ -148,6 +234,18 @@ class Utils:
         self.mainnet: dict[Collections, Collection]
         result = self.mainnet[Collections.blocks_per_day].find_one({"date": date})
         return result["hash_for_last_block"]
+
+    def generate_dates_from_start_date_until_end_date(self, start: str, end: str):
+        start_date = dateutil.parser.parse(start)
+        end_date = dateutil.parser.parse(end)
+        date_range = []
+
+        current_date = start_date
+        while current_date <= end_date:
+            date_range.append(current_date.strftime("%Y-%m-%d"))
+            current_date += timedelta(days=1)
+
+        return date_range
 
     def generate_dates_from_start_until_date(self, date: str):
         start_date = dateutil.parser.parse("2021-06-09")

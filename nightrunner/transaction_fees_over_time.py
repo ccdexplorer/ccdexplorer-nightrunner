@@ -1,8 +1,8 @@
-from rich.console import Console
-from .utils import Utils, AnalysisType
-from pymongo import ReplaceOne
 from ccdexplorer_fundamentals.mongodb import Collections
+from pymongo import ReplaceOne
+from rich.console import Console
 
+from .utils import AnalysisType, Utils
 
 console = Console()
 

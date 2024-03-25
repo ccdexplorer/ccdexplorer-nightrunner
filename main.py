@@ -27,8 +27,6 @@ motormongo = MongoMotor(tooter)
 
 
 async def main():
-    grpcclient = GRPCClient()
-
     night_runner = NightRunner(grpcclient, tooter, mongodb, motormongo)
     async with AsyncScheduler() as scheduler:
         await scheduler.add_schedule(
@@ -77,6 +75,15 @@ async def main():
             night_runner.perform_statistics_transaction_fees,
             IntervalTrigger(seconds=5 * 60),
         )
+        await scheduler.add_schedule(
+            night_runner.perform_statistics_historical_exchange_rates,
+            IntervalTrigger(seconds=5 * 60),
+        )
+        await scheduler.add_schedule(
+            night_runner.perform_statistics_bridges_and_dexes,
+            IntervalTrigger(seconds=5 * 60),
+        )
+
         await scheduler.run_until_stopped()
         pass
 
