@@ -418,8 +418,14 @@ class BridgesAndDexes(Utils):
                 dates_to_process[0]
             )
             do_your_thing = test_exchange_rate is not None
-        else:
+            console.log(
+                f"To process: {dates_to_process[0]}, ETH for this date: {test_exchange_rate}, can we start? {do_your_thing}."
+            )
+        elif len(dates_to_process) > 1:
             do_your_thing = True
+            console.log(f"To process: {len(dates_to_process)=}")
+        else:
+            do_your_thing = False
 
         if do_your_thing:
             # these dates are when both Arabella and Concordex contracts did not exist yet
