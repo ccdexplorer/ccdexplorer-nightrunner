@@ -1,7 +1,7 @@
 from ccdexplorer_fundamentals.mongodb import Collections
 from pymongo import ReplaceOne
 from rich.console import Console
-
+import datetime as dt
 from .utils import AnalysisType, Utils
 
 console = Console()
@@ -15,6 +15,11 @@ class TransactionFees(Utils):
         """
         analysis = AnalysisType.statistics_transaction_fees
         dates_to_process = self.find_dates_to_process(analysis)
+        if len(dates_to_process) == 0:
+            # run today's date
+            dates_to_process = [
+                f"{dt.datetime.now().astimezone(dt.timezone.utc):%Y-%m-%d}"
+            ]
         queue = []
         for d_date in dates_to_process:
             _id = f"{d_date}-{analysis.value}"

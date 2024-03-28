@@ -228,7 +228,26 @@ class Utils:
     def get_start_end_block_from_date(self, date: str) -> str:
         self.mainnet: dict[Collections, Collection]
         result = self.mainnet[Collections.blocks_per_day].find_one({"date": date})
-        return result["height_for_first_block"], result["height_for_last_block"]
+        if result:
+            return result["height_for_first_block"], result["height_for_last_block"]
+        else:
+            # if it's today...
+            # set last block to the last block we can find
+            height_result = self.mainnet[Collections.blocks].find_one(
+                {}, sort=[("height", -1)]
+            )
+            end_height = height_result["height"]
+
+            # find yesterday's date and find the last block there
+            yesterday_date = (
+                f"{(dateutil.parser.parse(date) - timedelta(days=1)):%Y-%m-%d}"
+            )
+            result = self.mainnet[Collections.blocks_per_day].find_one(
+                {"date": yesterday_date}
+            )
+            start_height = result["height_for_last_block"] + 1
+
+            return start_height, end_height
 
     def get_hash_from_date(self, date: str) -> str:
         self.mainnet: dict[Collections, Collection]
