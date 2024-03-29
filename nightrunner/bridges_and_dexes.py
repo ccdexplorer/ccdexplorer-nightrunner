@@ -409,7 +409,11 @@ class BridgesAndDexes(Utils):
         self.historical_exchange_rates = self.get_historical_rates()
         self.heights, self.block_end_of_day_dict = self.get_all_blocks_last_height()
         dates_to_process = self.find_dates_to_process(analysis)
-
+        if len(dates_to_process) == 0:
+            # run today's date
+            dates_to_process = [
+                f"{dt.datetime.now().astimezone(dt.timezone.utc):%Y-%m-%d}"
+            ]
         # check to see if the day we want to process has historical exchange rates informartion
         # already available. If not, quit and wait for next run.
         # Note only check this if we do 1 day, not for a full rerun.

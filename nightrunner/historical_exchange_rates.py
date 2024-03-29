@@ -4,7 +4,7 @@ from .utils import Utils, AnalysisType
 from pymongo import ReplaceOne
 from ccdexplorer_fundamentals.mongodb import Collections, CollectionsUtilities
 from ccdexplorer_fundamentals.tooter import Tooter, TooterChannel, TooterType
-
+from env import COIN_GECKO_API_KEY
 import datetime as dt
 from datetime import timezone
 import httpx
@@ -31,8 +31,10 @@ class HistoricalExchangeRates(Utils):
         return_list_for_token = []
         # only for tokens that we know we can request
         if token_to_request:
-            url = f"https://api.coingecko.com/api/v3/coins/{token_to_request}/market_chart?vs_currency=usd&days=max&interval=daily&precision=full"
-            with httpx.Client() as client:
+            url = f"https://api.coingecko.com/api/v3/coins/{token_to_request}/market_chart?vs_currency=usd&days=3&interval=daily&precision=full&x_cg_demo_api_key={COIN_GECKO_API_KEY}"
+            with httpx.Client(
+                # headers={"x-cg-demo-api-key": COIN_GECKO_API_KEY}
+            ) as client:
                 response = client.get(url)
                 if response.status_code == 200:
                     result = response.json()
@@ -75,6 +77,7 @@ class HistoricalExchangeRates(Utils):
         minute = now.minute
 
         is_between_0050_0059 = (hour == 0) and (50 <= minute <= 59)
+        # is_between_0050_0059 = True
         if is_between_0050_0059:
             self.get_token_translations_from_mongo()
 
