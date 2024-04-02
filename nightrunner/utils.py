@@ -47,6 +47,7 @@ class AnalysisType(Enum):
     statistics_transaction_fees = "statistics_transaction_fees"
     statistics_bridges_and_dexes = "statistics_bridges_and_dexes"
     statistics_historical_exchange_rates = "statistics_historical_exchange_rates"
+    statistics_transaction_types = "statistics_transaction_types"
 
 
 class Utils:
@@ -177,6 +178,46 @@ class Utils:
 
         return usecase_addresses
 
+    def get_usecases_complete(self):
+        self.utilities: dict[CollectionsUtilities, Collection]
+        self.mainnet: dict[Collections, Collection]
+        self.testnet: dict[Collections, Collection]
+
+        usecases_dict = {}
+        result = self.utilities[CollectionsUtilities.usecases].find({})
+        for usecase in list(result):
+            usecase_addresses = list(
+                self.mainnet[Collections.usecases].find(
+                    {"usecase_id": usecase["usecase_id"]}
+                )
+            )
+            mainnet_usecase_addresses = [
+                x["account_address"]
+                for x in usecase_addresses
+                if "account_address" in x
+            ]
+
+            mainnet_usecase_addresses.extend(
+                [
+                    x["contract_address"]
+                    for x in usecase_addresses
+                    if "contract_address" in x
+                ]
+            )
+
+            # testnet_usecase_addresses = [
+            #     x["account_address"]
+            #     for x in self.testnet[Collections.usecases].find(
+            #         {"usecase_id": usecase["usecase_id"]}
+            #     )
+            # ]
+            usecases_dict[usecase["usecase_id"]] = {
+                "mainnet_addresses": mainnet_usecase_addresses,
+                # "testnet_addresses": testnet_usecase_addresses,
+            }
+        usecases_dict["all"] = {}
+        return usecases_dict
+
     def write_queue_to_collection(
         self, queue: list[ReplaceOne], analysis: AnalysisType
     ):
@@ -224,6 +265,9 @@ class Utils:
 
     def get_all_dates(self) -> list[str]:
         return [x["date"] for x in self.mainnet[Collections.blocks_per_day].find({})]
+
+    def get_all_dates_with_info(self) -> list[str]:
+        return {x["date"]: x for x in self.mainnet[Collections.blocks_per_day].find({})}
 
     def get_start_end_block_from_date(self, date: str) -> str:
         self.mainnet: dict[Collections, Collection]
@@ -284,6 +328,18 @@ class Utils:
             for x in self.mainnet[Collections.statistics].find({"type": analysis.value})
         ]
 
+    def get_all_dates_for_usecase(
+        self, analysis: AnalysisType, usecase_id: str
+    ) -> list[str]:
+        pipeline = [
+            {"$match": {"type": analysis.value}},
+            {"$match": {"usecase": usecase_id}},
+            {"$project": {"_id": 0, "date": 1}},
+        ]
+        return [
+            x["date"] for x in self.mainnet[Collections.statistics].aggregate(pipeline)
+        ]
+
     def get_analysis_rerun_state(self, analysis: AnalysisType) -> bool:
         result = self.mainnet[Collections.helpers].find_one({"_id": "statistics_rerun"})
         if result:
@@ -323,6 +379,16 @@ class Utils:
                 [] if unprocessed_day in all_dates_for_analysis else [unprocessed_day]
             )
 
+        return dates_to_process
+
+    def find_dates_to_process_for_usecase(
+        self, analysis: AnalysisType, usecase_id: str
+    ) -> list[str]:
+        all_dates = self.get_all_dates()
+        dates_to_process = all_dates
+        dates_to_process.append(
+            f"{dt.datetime.now().astimezone(dt.timezone.utc):%Y-%m-%d}"
+        )
         return dates_to_process
 
     def get_df_from_git(self, commit: Commit) -> DataFrame:

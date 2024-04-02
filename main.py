@@ -83,7 +83,10 @@ async def main():
             night_runner.perform_statistics_bridges_and_dexes,
             IntervalTrigger(seconds=5 * 60),
         )
-
+        await scheduler.add_schedule(
+            night_runner.perform_statistics_transaction_types,
+            IntervalTrigger(seconds=5 * 60),
+        )
         await scheduler.run_until_stopped()
         pass
 

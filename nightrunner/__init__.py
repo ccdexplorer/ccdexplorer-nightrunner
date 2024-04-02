@@ -32,6 +32,7 @@ from .network_summary import NetworkSummary as _network_summary
 from .pools import Pools as _pools
 from .release_amounts import ReleaseAmounts as _release_amounts
 from .transaction_fees_over_time import TransactionFees as _transaction_fees
+from .transaction_type_use_cases import TransactionTypes as _transaction_types
 
 urllib3.disable_warnings()
 console = Console()
@@ -54,6 +55,7 @@ class NightRunner(
     _transaction_fees,
     _bridges_and_dexes,
     _exchange_rates,
+    _transaction_types,
 ):
     def __init__(
         self,
