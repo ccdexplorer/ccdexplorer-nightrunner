@@ -28,6 +28,7 @@ class ReportingActionType(str, Enum):
 
 
 class ReportingSubject(str, Enum):
+    # Tricorn = "Tricorn"
     Concordex = "Concordex"
     Arabella = "Arabella"
 
@@ -87,6 +88,15 @@ class BridgesAndDexes(Utils):
     def get_txs_for_impacted_address_arabella(self, d_date: str):
         pipeline = [
             {"$match": {"impacted_address_canonical": "<9337,0>", "date": d_date}},
+            {"$project": {"_id": 0, "tx_hash": 1}},
+        ]
+
+        result = self.mainnet[Collections.impacted_addresses].aggregate(pipeline)
+        return [x["tx_hash"] for x in result]
+
+    def get_txs_for_impacted_address_tricorn(self, d_date: str):
+        pipeline = [
+            {"$match": {"impacted_address_canonical": "<9427,0>", "date": d_date}},
             {"$project": {"_id": 0, "tx_hash": 1}},
         ]
 
@@ -228,9 +238,7 @@ class BridgesAndDexes(Utils):
             )
             return output, accounts
 
-        fungible_token = token_address_with_markup.tag_information.id
-        if fungible_token[0] == "w":
-            fungible_token = fungible_token[1:]
+        fungible_token = token_address_with_markup.tag_information.get_price_from
         if int(r.result["token_amount"]) > 0:
             real_token_amount = int(r.result["token_amount"]) * (
                 math.pow(10, -token_address_with_markup.tag_information.decimals)
@@ -349,6 +357,8 @@ class BridgesAndDexes(Utils):
             tx_hashes = self.get_txs_for_impacted_address_cdex(d_date)
         elif reporting_subject == ReportingSubject.Arabella:
             tx_hashes = self.get_txs_for_impacted_address_arabella(d_date)
+        elif reporting_subject == ReportingSubject.Tricorn:
+            tx_hashes = self.get_txs_for_impacted_address_tricorn(d_date)
 
         if len(tx_hashes) > 0:
             (

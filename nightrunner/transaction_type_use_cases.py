@@ -35,20 +35,21 @@ class TransactionTypes(Utils):
         This list of tx_hashes is then fed (in batches) to the collection `transactions` for a `sortByCount` pipeline.
         """
         analysis = AnalysisType.statistics_transaction_types
-        usecases_dict = self.get_usecases_complete()
+        # usecases_dict = self.get_usecases_complete()
+        projects_dict = self.get_projects_complete()
         self.all_days: dict = self.get_all_dates_with_info()
 
         # out loop is usecases
-        for usecase_id, usecase in usecases_dict.items():
-            dates_to_process = self.find_dates_to_process_for_usecase(
-                analysis, usecase_id
+        for project_id, project in projects_dict.items():
+            dates_to_process = self.find_dates_to_process_for_project(
+                analysis, project_id
             )
 
-            # usecase 'all', ie the chain.
-            if usecase_id == "all":
+            # project 'all', ie the chain.
+            if project_id == "all":
                 for d_date in dates_to_process[-2:]:
                     queue = []
-                    _id = f"{d_date}-{analysis.value}-{usecase_id}"
+                    _id = f"{d_date}-{analysis.value}-{project_id}"
                     console.log(_id)
                     height_for_first_block, height_for_last_block = (
                         self.get_start_end_block_from_date(d_date)
@@ -74,7 +75,7 @@ class TransactionTypes(Utils):
                         "_id": _id,
                         "date": d_date,
                         "type": analysis.value,
-                        "usecase": usecase_id,
+                        "project": project_id,
                         # note no address here
                         "tx_type_counts": tx_types,
                     }
@@ -96,8 +97,8 @@ class TransactionTypes(Utils):
                 # the last block for this day and adjust query.
 
                 # find previously done items
-                self.already_done_for_usecase = self.find_previous_entries_for_usecase(
-                    analysis, usecase_id
+                self.already_done_for_project = self.find_previous_entries_for_project(
+                    analysis, project_id
                 )
 
                 # loop through all days for this usecase that we need to perform
@@ -108,21 +109,21 @@ class TransactionTypes(Utils):
                         do_this_day,
                         redo_this_day,
                         addresses_are_different,
-                        addresses_from_usecase_collection,
+                        addresses_from_project_collection,
                         last_block_processed,
-                    ) = self.determine_if_day_needs_to_be_done(usecase, d_date)
+                    ) = self.determine_if_day_needs_to_be_done(project, d_date)
 
-                    _id = f"{d_date}-{analysis.value}-{usecase_id}"
+                    _id = f"{d_date}-{analysis.value}-{project_id}"
                     if do_this_day or redo_this_day:
                         # we need to loop through all addresses separately
 
-                        dct = self.perform_actions_for_usecase(
+                        dct = self.perform_actions_for_project(
                             analysis,
-                            usecase_id,
-                            usecase,
+                            project_id,
+                            project,
                             d_date,
                             _id,
-                            addresses_from_usecase_collection,
+                            addresses_from_project_collection,
                             last_block_processed,
                             redo_this_day,
                         )
@@ -133,12 +134,12 @@ class TransactionTypes(Utils):
                             "_id": _id,
                             "date": d_date,
                             "type": analysis.value,
-                            "usecase": usecase_id,
-                            "based_on_addresses": usecase["mainnet_addresses"],
-                            "tx_type_counts": self.already_done_for_usecase[d_date][
+                            "project": project_id,
+                            "based_on_addresses": project["mainnet_addresses"],
+                            "tx_type_counts": self.already_done_for_project[d_date][
                                 "tx_type_counts"
                             ],
-                            "last_block_processed": self.already_done_for_usecase[
+                            "last_block_processed": self.already_done_for_project[
                                 d_date
                             ]["last_block_processed"],
                         }
@@ -167,24 +168,24 @@ class TransactionTypes(Utils):
         redo_this_day = False
 
         addresses_are_different = False
-        addresses_from_usecase_collection = usecase["mainnet_addresses"]
+        addresses_from_project_collection = usecase["mainnet_addresses"]
         last_block_processed = -1
-        if not (self.already_done_for_usecase.get(d_date)):
+        if not (self.already_done_for_project.get(d_date)):
             # this day is not present in the collection
             do_this_day = True
         else:
             # so we have previously done this day, we should only redo this
             # if something has changed in the addresses for this usecase.
-            addresses_in_done_day = self.already_done_for_usecase[d_date][
+            addresses_in_done_day = self.already_done_for_project[d_date][
                 "based_on_addresses"
             ]
 
-            if set(addresses_in_done_day) != set(addresses_from_usecase_collection):
+            if set(addresses_in_done_day) != set(addresses_from_project_collection):
                 # if we have removed an address
                 # rerun this day
 
                 removed_addresses = list(
-                    set(addresses_in_done_day) - set(addresses_from_usecase_collection)
+                    set(addresses_in_done_day) - set(addresses_from_project_collection)
                 )
                 redo_this_day = len(removed_addresses) > 0
 
@@ -192,7 +193,7 @@ class TransactionTypes(Utils):
                 # check if txs for new address, then rerun this day if true, else just update based_on_addresses
 
                 new_addresses = list(
-                    set(addresses_from_usecase_collection) - set(addresses_in_done_day)
+                    set(addresses_from_project_collection) - set(addresses_in_done_day)
                 )
 
                 pipeline = [
@@ -215,7 +216,7 @@ class TransactionTypes(Utils):
             else:
                 # finally, check to see if we have gone through all blocks for the day
                 # or if it's today, just run again.
-                last_block_processed_collection = self.already_done_for_usecase[d_date][
+                last_block_processed_collection = self.already_done_for_project[d_date][
                     "last_block_processed"
                 ]
 
@@ -235,13 +236,13 @@ class TransactionTypes(Utils):
             do_this_day,
             redo_this_day,
             addresses_are_different,
-            addresses_from_usecase_collection,
+            addresses_from_project_collection,
             last_block_processed,
         )
 
-    def find_previous_entries_for_usecase(self, analysis, usecase_id):
+    def find_previous_entries_for_project(self, analysis, project_id):
         pipeline = [
-            {"$match": {"type": analysis.value, "usecase": usecase_id}},
+            {"$match": {"type": analysis.value, "project": project_id}},
         ]
         already_done_for_usecase = {
             x["date"]: x
@@ -250,7 +251,7 @@ class TransactionTypes(Utils):
 
         return already_done_for_usecase
 
-    def perform_actions_for_usecase(
+    def perform_actions_for_project(
         self,
         analysis: AnalysisType,
         usecase_id: str,
@@ -295,8 +296,8 @@ class TransactionTypes(Utils):
         else:
             last_block_processed = self.all_days[d_date]["height_for_last_block"]
 
-        if self.already_done_for_usecase.get(d_date) and not redo_this_day:
-            tx_types = Counter(self.already_done_for_usecase[d_date]["tx_type_counts"])
+        if self.already_done_for_project.get(d_date) and not redo_this_day:
+            tx_types = Counter(self.already_done_for_project[d_date]["tx_type_counts"])
         else:
             tx_types = Counter()
         if len(tx_hashes):

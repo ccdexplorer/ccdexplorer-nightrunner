@@ -54,13 +54,27 @@ class Utils:
 
     def get_contracts_with_tag_info(self):
         db_to_use = self.mainnet
-        contracts_with_tag_info: dict[str, MongoTypeTokensTag] = {}
-        token_tags = db_to_use[Collections.tokens_tags].find({})
-        for token_tag in token_tags:
-            for contract in token_tag["contracts"]:
-                contracts_with_tag_info[contract] = MongoTypeTokensTag(**token_tag)
+        contracts_with_tag_info = {
+            x["contract"]: MongoTypeTokensTag(**x)
+            for x in db_to_use[Collections.pre_render].find(
+                {"recurring_type": "contracts_to_tokens"}
+            )
+        }
 
         return contracts_with_tag_info
+
+    def get_contracts_for_fungible_tokens(self):
+        db: dict[Collections, Collection] = self.mainnet
+        contract_to_fungible_token = {}
+        token_tags_list = [
+            MongoTypeTokensTag(**x)
+            for x in db[Collections.tokens_tags].find({"token_type": "fungible"})
+        ]
+        for token_tag in token_tags_list:
+            for contract in token_tag.contracts:
+                contract_to_fungible_token[contract] = token_tag
+
+        return contract_to_fungible_token
 
     def get_fungible_tokens_with_markup(self):
         contracts_with_tag_info = self.get_contracts_with_tag_info()
@@ -69,9 +83,7 @@ class Utils:
         coll = self.utilities[CollectionsUtilities.exchange_rates]
 
         exchange_rates = {x["token"]: x for x in coll.find({})}
-        exchange_rates["wBTC"] = exchange_rates["BTC"]
-        exchange_rates["wCCD"] = exchange_rates["CCD"]
-
+        contract_to_fungible_token = self.get_contracts_for_fungible_tokens()
         # find fungible tokens
         fungible_contracts = [
             contract
@@ -87,21 +99,30 @@ class Utils:
         }
 
         for address in fungible_tokens_with_markup.keys():
-            token_address_class = fungible_tokens_with_markup[address]
-            if token_address_class.contract in contracts_with_tag_info.keys():
-                token_address_class.tag_information = contracts_with_tag_info[
-                    token_address_class.contract
+            token_address_as_class = fungible_tokens_with_markup[address]
+            if not isinstance(token_address_as_class, MongoTypeTokenAddress):
+                token_address_as_class = MongoTypeTokenAddress(**MongoTypeTokenAddress)
+            corresponding_tokens_tag: MongoTypeTokensTag = contract_to_fungible_token[
+                token_address_as_class.contract
+            ]
+            if not isinstance(corresponding_tokens_tag, MongoTypeTokensTag):
+                corresponding_tokens_tag = MongoTypeTokensTag(
+                    **corresponding_tokens_tag
+                )
+            if token_address_as_class.contract in contracts_with_tag_info.keys():
+                token_address_as_class.tag_information = contracts_with_tag_info[
+                    token_address_as_class.contract
                 ]
-                if token_address_class.tag_information.token_type == "fungible":
-                    if token_address_class.tag_information.id in exchange_rates.keys():
-                        token_address_class.exchange_rate = exchange_rates[
-                            token_address_class.tag_information.id
-                        ]["rate"]
-                    else:
-                        token_address_class.exchange_rate = 0
+            get_price_from = corresponding_tokens_tag.get_price_from
+
+            if get_price_from in exchange_rates:
+                token_address_as_class.exchange_rate = exchange_rates[get_price_from][
+                    "rate"
+                ]
             else:
-                token_address_class.tag_information = None
-            fungible_tokens_with_markup[address] = token_address_class
+                token_address_as_class.exchange_rate = 0
+
+            fungible_tokens_with_markup[address] = token_address_as_class
 
         return fungible_tokens_with_markup
 
@@ -217,6 +238,46 @@ class Utils:
             }
         usecases_dict["all"] = {}
         return usecases_dict
+
+    def get_projects_complete(self):
+        self.utilities: dict[CollectionsUtilities, Collection]
+        self.mainnet: dict[Collections, Collection]
+        self.testnet: dict[Collections, Collection]
+
+        projects_dict = {}
+        result = self.utilities[CollectionsUtilities.projects].find({})
+        for project in list(result):
+            project_addresses = list(
+                self.mainnet[Collections.projects].find(
+                    {"project_id": project["project_id"]}
+                )
+            )
+            mainnet_project_addresses = [
+                x["account_address"]
+                for x in project_addresses
+                if "account_address" in x
+            ]
+
+            mainnet_project_addresses.extend(
+                [
+                    x["contract_address"]
+                    for x in project_addresses
+                    if "contract_address" in x
+                ]
+            )
+
+            # testnet_usecase_addresses = [
+            #     x["account_address"]
+            #     for x in self.testnet[Collections.usecases].find(
+            #         {"usecase_id": usecase["usecase_id"]}
+            #     )
+            # ]
+            projects_dict[project["project_id"]] = {
+                "mainnet_addresses": mainnet_project_addresses,
+                # "testnet_addresses": testnet_usecase_addresses,
+            }
+        projects_dict["all"] = {}
+        return projects_dict
 
     def write_queue_to_collection(
         self, queue: list[ReplaceOne], analysis: AnalysisType
@@ -381,7 +442,7 @@ class Utils:
 
         return dates_to_process
 
-    def find_dates_to_process_for_usecase(
+    def find_dates_to_process_for_project(
         self, analysis: AnalysisType, usecase_id: str
     ) -> list[str]:
         all_dates = self.get_all_dates()
