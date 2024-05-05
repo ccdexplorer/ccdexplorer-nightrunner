@@ -254,8 +254,8 @@ class TransactionTypes(Utils):
     def perform_actions_for_project(
         self,
         analysis: AnalysisType,
-        usecase_id: str,
-        usecase: dict,
+        project_id: str,
+        project: dict,
         d_date: str,
         _id: str,
         addresses_from_usecase_collection: list[str],
@@ -327,8 +327,8 @@ class TransactionTypes(Utils):
             "_id": _id,
             "date": d_date,
             "type": analysis.value,
-            "usecase": usecase_id,
-            "based_on_addresses": usecase["mainnet_addresses"],
+            "project": project_id,
+            "based_on_addresses": project["mainnet_addresses"],
             "tx_type_counts": dict(tx_types),
             "last_block_processed": last_block_processed,
         }
