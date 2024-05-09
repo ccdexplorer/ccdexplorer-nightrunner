@@ -28,7 +28,7 @@ class ReportingActionType(str, Enum):
 
 
 class ReportingSubject(str, Enum):
-    # Tricorn = "Tricorn"
+    Tricorn = "Tricorn"
     Concordex = "Concordex"
     Arabella = "Arabella"
 
@@ -40,6 +40,7 @@ class ClassifiedTransaction(BaseModel):
     addresses: Optional[set] = None
     date: Optional[str] = None
     action_type: Optional[ReportingActionType] = None
+    logged_event_index_for_action: Optional[int] = None
 
 
 class ReportingUnit(BaseModel):
@@ -101,7 +102,23 @@ class BridgesAndDexes(Utils):
         ]
 
         result = self.mainnet[Collections.impacted_addresses].aggregate(pipeline)
-        return [x["tx_hash"] for x in result]
+        bridge_txs = set(x["tx_hash"] for x in result)
+
+        pipeline = [
+            {
+                "$match": {
+                    "impacted_address_canonical": {
+                        "$in": ["<9428,0>", "<9429,0>", "<9430,0>"],
+                    },
+                    "date": d_date,
+                }
+            },
+            {"$project": {"_id": 0, "tx_hash": 1}},
+        ]
+
+        result = self.mainnet[Collections.impacted_addresses].aggregate(pipeline)
+        wrong_txs = set(x["tx_hash"] for x in result)
+        return list(bridge_txs - wrong_txs)
 
     def address_exists_and_is_account(self, address: str | None):
         if not address:
@@ -162,7 +179,10 @@ class BridgesAndDexes(Utils):
             txs_per_action_type = txs_by_action_type[action_type]
             for tx in txs_per_action_type:
                 tx: ClassifiedTransaction
-                r = tx.logged_events[0]
+                if tx.logged_event_index_for_action:
+                    r = tx.logged_events[tx.logged_event_index_for_action]
+                else:
+                    r = tx.logged_events[0]
                 output, accounts = self.append_logged_event(
                     output,
                     accounts,
@@ -238,16 +258,17 @@ class BridgesAndDexes(Utils):
             )
             return output, accounts
 
-        fungible_token = token_address_with_markup.tag_information.get_price_from
+        get_price_from = token_address_with_markup.tag_information.get_price_from
+        fungible_token = token_address_with_markup.tag_information.token_tag_id
         if int(r.result["token_amount"]) > 0:
             real_token_amount = int(r.result["token_amount"]) * (
                 math.pow(10, -token_address_with_markup.tag_information.decimals)
             )
 
-            if self.historical_exchange_rates.get(fungible_token):
-                if tx.date in self.historical_exchange_rates[fungible_token]:
+            if self.historical_exchange_rates.get(get_price_from):
+                if tx.date in self.historical_exchange_rates[get_price_from]:
                     exchange_rate_for_day = self.historical_exchange_rates[
-                        fungible_token
+                        get_price_from
                     ][tx.date]
                     dd = {
                         "tx_hash": tx.tx_hash,
@@ -340,11 +361,23 @@ class BridgesAndDexes(Utils):
                     classified_tx = self.classify_tx_as_swap_or_withdraw(classified_tx)
 
             elif reporting_subject == ReportingSubject.Arabella:
+
                 if classified_tx.logged_events[0].event_type == "mint_event":
                     classified_tx.action_type = ReportingActionType.mint
 
                 if classified_tx.logged_events[0].event_type == "burn_event":
                     classified_tx.action_type = ReportingActionType.burn
+
+            elif reporting_subject == ReportingSubject.Tricorn:
+
+                if classified_tx.logged_events[0].event_type == "mint_event":
+                    classified_tx.action_type = ReportingActionType.mint
+                # Tricorn burn txs seem to have a fee transfer as first logged event,
+                # hence we need to take the second logged event to classify correctly.
+                if len(classified_tx.logged_events) > 1:
+                    if classified_tx.logged_events[1].event_type == "burn_event":
+                        classified_tx.action_type = ReportingActionType.burn
+                        classified_tx.logged_event_index_for_action = 1
 
             txs_by_action_type[classified_tx.action_type].append(classified_tx)
         return txs_by_action_type, tx_hashes_from_events
