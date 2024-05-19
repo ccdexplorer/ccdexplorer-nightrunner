@@ -73,8 +73,7 @@ class ReportingOutputV2(BaseModel):
     action_types_for_day: list[dict]
     fungible_tokens_for_day: list[dict]
     addresses: list[str]
-    hashes_per_action_types_for_day: dict
-    txs_count_for_day: int
+    hashes_per_day: list[dict]
 
 
 class BridgesAndDexes(Utils):
@@ -176,13 +175,11 @@ class BridgesAndDexes(Utils):
     def process_txs_for_analytics(self, txs_by_action_type):
         output = []
         accounts = []
-        hashes_per_action_type_for_day = {}
-        txs_count_for_day = 0
+        hashes_per_day = []
         for action_type in ReportingActionType:
-            hashes_per_action_type_for_day[action_type] = {}
             txs_per_action_type = txs_by_action_type[action_type]
             for tx in txs_per_action_type:
-                txs_count_for_day += 1
+
                 tx: ClassifiedTransaction
                 if tx.logged_event_index_for_action:
                     r = tx.logged_events[tx.logged_event_index_for_action]
@@ -205,12 +202,14 @@ class BridgesAndDexes(Utils):
                         tx,
                         r,
                     )
-                hashes_per_action_type_for_day[action_type][tx.tx_hash] = [
-                    x.id for x in tx.logged_events
-                ]
-        clean_hashes_per_action_type_for_day = {
-            k: v for k, v in hashes_per_action_type_for_day.items() if v != {}
-        }
+                hashes_per_day.append(
+                    {
+                        "tx_hash": tx.tx_hash,
+                        "action_type": action_type,
+                        "block_height": tx.block_height,
+                        "logged_events": [x.id for x in tx.logged_events],
+                    }
+                )
 
         if len(output) > 0:
             df = pd.DataFrame([x.model_dump() for x in output])
@@ -250,8 +249,9 @@ class BridgesAndDexes(Utils):
             action_types_for_day=action_types_for_day,
             fungible_tokens_for_day=fungible_tokens_for_day,
             addresses=addresses,
-            hashes_per_action_types_for_day=clean_hashes_per_action_type_for_day,
-            txs_count_for_day=txs_count_for_day,
+            hashes_per_day=sorted(
+                hashes_per_day, key=lambda x: x["block_height"], reverse=True
+            ),
         )
 
     def append_logged_event(
@@ -535,15 +535,8 @@ class BridgesAndDexes(Utils):
                         "unique_addresses_for_day": (
                             reporting_output.addresses if reporting_output else []
                         ),
-                        "hashes_per_action_types_for_day": (
-                            reporting_output.hashes_per_action_types_for_day
-                            if reporting_output
-                            else {}
-                        ),
-                        "txs_count_for_day": (
-                            reporting_output.txs_count_for_day
-                            if reporting_output
-                            else 0
+                        "hashes_per_day": (
+                            reporting_output.hashes_per_day if reporting_output else {}
                         ),
                         # "tvl_in_usd": tvl,
                     }
