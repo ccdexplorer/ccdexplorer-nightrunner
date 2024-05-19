@@ -74,6 +74,7 @@ class ReportingOutputV2(BaseModel):
     fungible_tokens_for_day: list[dict]
     addresses: list[str]
     hashes_per_action_types_for_day: dict
+    txs_count_for_day: int
 
 
 class BridgesAndDexes(Utils):
@@ -176,10 +177,12 @@ class BridgesAndDexes(Utils):
         output = []
         accounts = []
         hashes_per_action_type_for_day = {}
+        txs_count_for_day = 0
         for action_type in ReportingActionType:
             hashes_per_action_type_for_day[action_type] = {}
             txs_per_action_type = txs_by_action_type[action_type]
             for tx in txs_per_action_type:
+                txs_count_for_day += 1
                 tx: ClassifiedTransaction
                 if tx.logged_event_index_for_action:
                     r = tx.logged_events[tx.logged_event_index_for_action]
@@ -248,6 +251,7 @@ class BridgesAndDexes(Utils):
             fungible_tokens_for_day=fungible_tokens_for_day,
             addresses=addresses,
             hashes_per_action_types_for_day=clean_hashes_per_action_type_for_day,
+            txs_count_for_day=txs_count_for_day,
         )
 
     def append_logged_event(
@@ -535,6 +539,11 @@ class BridgesAndDexes(Utils):
                             reporting_output.hashes_per_action_types_for_day
                             if reporting_output
                             else {}
+                        ),
+                        "txs_count_for_day": (
+                            reporting_output.txs_count_for_day
+                            if reporting_output
+                            else 0
                         ),
                         # "tvl_in_usd": tvl,
                     }
