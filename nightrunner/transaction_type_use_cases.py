@@ -47,8 +47,19 @@ class TransactionTypes(Utils):
 
             # project 'all', ie the chain.
             if project_id == "all":
-                for d_date in dates_to_process[-2:]:
-                    queue = []
+                queue = []
+                # find previously done items
+                already_done_for_project = self.find_previous_entries_for_project(
+                    analysis, project_id
+                )
+                dates_to_do = list(
+                    set(dates_to_process) - set(already_done_for_project)
+                )
+                dates_to_do.append(
+                    f"{dt.datetime.now().astimezone(dt.timezone.utc):%Y-%m-%d}"
+                )
+                for d_date in dates_to_do:
+
                     _id = f"{d_date}-{analysis.value}-{project_id}"
                     console.log(_id)
                     height_for_first_block, height_for_last_block = (
@@ -87,6 +98,9 @@ class TransactionTypes(Utils):
                             upsert=True,
                         )
                     )
+                if len(queue) > 0:
+                    _ = self.mainnet[Collections.statistics].bulk_write(queue)
+                    queue = []
             else:
                 # we are going to loop through all days from dates_to_process
                 # if the day isn't present already, we need to create it.
@@ -240,7 +254,7 @@ class TransactionTypes(Utils):
             last_block_processed,
         )
 
-    def find_previous_entries_for_project(self, analysis, project_id):
+    def find_previous_entries_for_project(self, analysis: AnalysisType, project_id):
         pipeline = [
             {"$match": {"type": analysis.value, "project": project_id}},
         ]
