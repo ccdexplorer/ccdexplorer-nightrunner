@@ -386,7 +386,9 @@ class Utils:
     def get_all_dates_for_analysis(self, analysis: AnalysisType) -> list[str]:
         return [
             x["date"]
-            for x in self.mainnet[Collections.statistics].find({"type": analysis.value})
+            for x in self.mainnet[Collections.statistics]
+            .find({"type": analysis.value})
+            .sort({"date": -1})
         ]
 
     def get_all_dates_for_usecase(
@@ -430,7 +432,7 @@ class Utils:
 
         # this is the new day to be processed
         unprocessed_day = self.get_unprocessed_day()
-
+        unprocessed_day = "2024-05-07"
         # first check whether we need re rerun all dates
         if rerun_state:
             dates_to_process = all_dates
@@ -439,6 +441,34 @@ class Utils:
             dates_to_process = (
                 [] if unprocessed_day in all_dates_for_analysis else [unprocessed_day]
             )
+
+        return dates_to_process
+
+    def find_dates_to_process_for_nightly_statistics(
+        self, analysis: AnalysisType
+    ) -> list[str]:
+        # all days, including current day 1 sec after midnight
+        all_dates = self.get_all_dates()
+        # from a Mongo helper
+        rerun_state = self.get_analysis_rerun_state(analysis)
+        # all dates present for this analysis
+        all_dates_for_analysis = self.get_all_dates_for_analysis(analysis)
+
+        # this is the new day to be processed
+        # for normal days, we should only proceed to process this day
+        # when the unprocessed day is the last day in all_dates
+        # as that indicates that all_accounts has finished.
+        unprocessed_day = self.get_unprocessed_day()
+        # first check whether we need re rerun all dates
+        if rerun_state:
+            dates_to_process = all_dates
+        # check if we have already done the unprocessed day
+        else:
+            dates_to_process = list(set(all_dates) - set(all_dates_for_analysis))
+            if unprocessed_day != all_dates[-1]:
+                dates_to_process = list(
+                    set(dates_to_process) - set(list(unprocessed_day))
+                )
 
         return dates_to_process
 

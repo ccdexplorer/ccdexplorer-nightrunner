@@ -14,13 +14,14 @@ class MongoTransactions(Utils):
         self.repo: Repo
         self.mainnet: dict[Collections, Collection]
         analysis = AnalysisType.statistics_mongo_transactions
-        dates_to_process = self.find_dates_to_process(analysis)
+        dates_to_process = self.find_dates_to_process_for_nightly_statistics(analysis)
         queue = []
         commits = reversed(list(self.repo.iter_commits("main")))
         for commit in commits:
             d_date = self.get_date_from_git(commit)
-            s, e = self.get_start_end_block_from_date(d_date)
+
             if d_date in dates_to_process:
+                s, e = self.get_start_end_block_from_date(d_date)
                 _id = f"{d_date}-{analysis.value}"
                 console.log(_id)
 
