@@ -163,4 +163,4 @@ class NetworkSummary(Utils):
             if len(queue) > 0:
                 self.write_queue_to_collection(queue, analysis)
             queue = []
-        self.have_we_missed_commits(analysis, dates_to_process_count_down)
+        # self.have_we_missed_commits(analysis, dates_to_process_count_down)
