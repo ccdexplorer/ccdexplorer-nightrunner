@@ -14,7 +14,7 @@ class TransactionFees(Utils):
         Calculate transaction fees per day.
         """
         analysis = AnalysisType.statistics_transaction_fees
-        dates_to_process = self.find_dates_to_process(analysis)
+        dates_to_process = self.find_dates_to_process_for_nightly_statistics(analysis)
         if len(dates_to_process) == 0:
             # run today's date
             dates_to_process = [

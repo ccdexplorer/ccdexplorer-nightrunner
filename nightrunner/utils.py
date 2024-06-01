@@ -15,6 +15,7 @@ from git import Commit
 from pandas import DataFrame
 from pymongo import ReplaceOne
 from pymongo.collection import Collection
+from ccdexplorer_fundamentals.tooter import Tooter, TooterChannel, TooterType
 
 
 class PreRender(Enum):
@@ -51,6 +52,16 @@ class AnalysisType(Enum):
 
 
 class Utils:
+    def have_we_missed_commits(
+        self, analysis: AnalysisType, dates_to_process_count_down: dict
+    ):
+        if len(dates_to_process_count_down.keys()) > 0:
+            self.tooter: Tooter
+            self.tooter.send(
+                channel=TooterChannel.NOTIFIER,
+                message=f"Nightrunner: Analysis {analysis.value} could not find commit(s) for {list(dates_to_process_count_down.keys())}.",
+                notifier_type=TooterType.REQUESTS_ERROR,
+            )
 
     def get_contracts_with_tag_info(self):
         db_to_use = self.mainnet
@@ -417,7 +428,10 @@ class Utils:
         result = self.mainnet[Collections.statistics].find_one(
             {"$and": [{"type": "statistics_network_summary"}, {"date": date}]}
         )
-        return result["total_amount"]
+        if not result:
+            exit(f"No statistics_network_summary for {date}")
+        else:
+            return result["total_amount"]
 
     def get_unprocessed_day(self) -> str:
         result = self.mainnet[Collections.helpers].find_one(
@@ -432,7 +446,7 @@ class Utils:
 
         # this is the new day to be processed
         unprocessed_day = self.get_unprocessed_day()
-        unprocessed_day = "2024-05-07"
+        # unprocessed_day = "2024-05-07"
         # first check whether we need re rerun all dates
         if rerun_state:
             dates_to_process = all_dates

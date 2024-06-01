@@ -30,7 +30,8 @@ class Classified(Utils):
         self.repo: Repo
         exchanges = self.get_exchanges()
         analysis = AnalysisType.statistics_ccd_classified
-        dates_to_process = self.find_dates_to_process(analysis)
+        dates_to_process = self.find_dates_to_process_for_nightly_statistics(analysis)
+        dates_to_process_count_down = {x: x for x in dates_to_process}
         queue = []
         commits = reversed(list(self.repo.iter_commits("main")))
 
@@ -38,6 +39,7 @@ class Classified(Utils):
             d_date = self.get_date_from_git(commit)
 
             if d_date in dates_to_process:
+                del dates_to_process_count_down[d_date]
                 df = self.get_df_from_git(commit)
                 _id = f"{d_date}-{analysis.value}"
                 console.log(_id)
@@ -85,4 +87,5 @@ class Classified(Utils):
                         upsert=True,
                     )
                 )
+        self.have_we_missed_commits(analysis, dates_to_process_count_down)
         self.write_queue_to_collection(queue, analysis)

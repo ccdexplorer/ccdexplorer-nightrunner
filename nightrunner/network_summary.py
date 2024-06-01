@@ -19,7 +19,7 @@ class NetworkSummary(Utils):
         self.grpcclient: GRPCClient
         self.repo: Repo
         analysis = AnalysisType.statistics_network_summary
-        dates_to_process = self.find_dates_to_process(analysis)
+        dates_to_process = self.find_dates_to_process_for_nightly_statistics(analysis)
         queue = []
         commits = reversed(list(self.repo.iter_commits("main")))
         for commit in commits:
@@ -121,7 +121,8 @@ class NetworkSummary(Utils):
     def perform_statistics_network_activity(self):
         self.repo: Repo
         analysis = AnalysisType.statistics_network_activity
-        dates_to_process = self.find_dates_to_process(analysis)
+        dates_to_process = self.find_dates_to_process_for_nightly_statistics(analysis)
+        dates_to_process_count_down = {x: x for x in dates_to_process}
         queue = []
         commits = reversed(list(self.repo.iter_commits("main")))
         previous_commit = None
@@ -129,7 +130,7 @@ class NetworkSummary(Utils):
 
             d_date = self.get_date_from_git(commit)
             if d_date in dates_to_process and previous_commit:
-
+                del dates_to_process_count_down[d_date]
                 df_accounts_for_day = self.get_df_from_git(commit)
                 df_accounts_for_yesterday = self.get_df_from_git(previous_commit)
                 d_date_yesterday = self.get_date_from_git(previous_commit)
@@ -162,3 +163,4 @@ class NetworkSummary(Utils):
             if len(queue) > 0:
                 self.write_queue_to_collection(queue, analysis)
             queue = []
+        self.have_we_missed_commits(analysis, dates_to_process_count_down)

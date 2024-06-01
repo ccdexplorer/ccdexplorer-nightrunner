@@ -12,7 +12,8 @@ class Pools(Utils):
     def perform_statistics_classified_pools(self):
         self.repo: Repo
         analysis = AnalysisType.statistics_classified_pools
-        dates_to_process = self.find_dates_to_process(analysis)
+        dates_to_process = self.find_dates_to_process_for_nightly_statistics(analysis)
+        dates_to_process_count_down = {x: x for x in dates_to_process}
         queue = []
         commits = reversed(list(self.repo.iter_commits("main")))
         process_pools = False
@@ -24,6 +25,7 @@ class Pools(Utils):
                 process_pools = True
 
             if d_date in dates_to_process and process_pools:
+                del dates_to_process_count_down[d_date]
                 df = self.get_df_from_git(commit)
                 _id = f"{d_date}-{analysis.value}"
                 console.log(_id)
@@ -68,4 +70,5 @@ class Pools(Utils):
                         upsert=True,
                     )
                 )
+        self.have_we_missed_commits(analysis, dates_to_process_count_down)
         self.write_queue_to_collection(queue, analysis)

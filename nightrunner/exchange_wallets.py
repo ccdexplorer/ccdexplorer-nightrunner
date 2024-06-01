@@ -32,7 +32,8 @@ class ExchangeWallets(Utils):
         exchanges = self.get_exchanges()
 
         analysis = AnalysisType.statistics_exchange_wallets
-        dates_to_process = self.find_dates_to_process(analysis)
+        dates_to_process = self.find_dates_to_process_for_nightly_statistics(analysis)
+        dates_to_process_count_down = {x: x for x in dates_to_process}
         # all_dates_for_analysis = self.get_all_dates_for_analysis(analysis)
         queue = []
         # commits = reversed(list(self.repo.iter_commits("main")))
@@ -40,6 +41,7 @@ class ExchangeWallets(Utils):
         for d_date in dates_to_process:
 
             if d_date in dates_to_process:
+                del dates_to_process_count_down[d_date]
                 _id = f"{d_date}-{analysis.value}"
                 console.log(_id)
 
@@ -68,4 +70,5 @@ class ExchangeWallets(Utils):
                         upsert=True,
                     )
                 )
+        self.have_we_missed_commits(analysis, dates_to_process_count_down)
         self.write_queue_to_collection(queue, analysis)

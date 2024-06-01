@@ -76,7 +76,7 @@ class NightRunner(
         self.motor_testnet: dict[Collections, Collection] = self.motormongo.testnet
         self.client = httpx.Client()
         self.find_repo()
-        # self.repo_pull()
+        self.repo_pull()
 
     def find_repo(self):
         ON_SERVER = os.environ.get("ON_SERVER", False)
