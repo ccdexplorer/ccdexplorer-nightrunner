@@ -45,5 +45,4 @@ class ReleaseAmounts(Utils):
                         upsert=True,
                     )
                 )
-        self.have_we_missed_commits(analysis, dates_to_process_count_down)
         self.write_queue_to_collection(queue, analysis)
