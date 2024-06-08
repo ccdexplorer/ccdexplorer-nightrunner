@@ -33,6 +33,8 @@ from .pools import Pools as _pools
 from .release_amounts import ReleaseAmounts as _release_amounts
 from .transaction_fees_over_time import TransactionFees as _transaction_fees
 from .transaction_type_use_cases import TransactionTypes as _transaction_types
+from .tvl_for_fungible_tokens import TVLForTokens as _tvl_for_tokens
+from .unique_addresses import UniqueAddresses as _unique_addresses
 
 urllib3.disable_warnings()
 console = Console()
@@ -56,6 +58,8 @@ class NightRunner(
     _bridges_and_dexes,
     _exchange_rates,
     _transaction_types,
+    _tvl_for_tokens,
+    _unique_addresses,
 ):
     def __init__(
         self,

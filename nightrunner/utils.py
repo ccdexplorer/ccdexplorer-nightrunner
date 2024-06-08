@@ -11,6 +11,8 @@ from ccdexplorer_fundamentals.mongodb import (
     Collections,
     CollectionsUtilities,
 )
+import calendar
+
 from git import Commit
 from pandas import DataFrame
 from pymongo import ReplaceOne
@@ -49,6 +51,10 @@ class AnalysisType(Enum):
     statistics_bridges_and_dexes = "statistics_bridges_and_dexes"
     statistics_historical_exchange_rates = "statistics_historical_exchange_rates"
     statistics_transaction_types = "statistics_transaction_types"
+    statistics_tvl_for_tokens = "statistics_tvl_for_tokens"
+    statistics_unique_addresses_daily = "statistics_unique_addresses_daily"
+    statistics_unique_addresses_weekly = "statistics_unique_addresses_weekly"
+    statistics_unique_addresses_monthly = "statistics_unique_addresses_monthly"
 
 
 class Utils:
@@ -402,6 +408,18 @@ class Utils:
             .sort({"date": -1})
         ]
 
+    def get_all_dates_for_analysis_tvl_for_token(
+        self, analysis: AnalysisType, token_address: str
+    ) -> list[str]:
+        return [
+            x["date"]
+            for x in self.mainnet[Collections.statistics]
+            .find(
+                {"$and": [{"type": analysis.value}, {"token_address": token_address}]}
+            )
+            .sort({"date": -1})
+        ]
+
     def get_all_dates_for_usecase(
         self, analysis: AnalysisType, usecase_id: str
     ) -> list[str]:
@@ -484,6 +502,108 @@ class Utils:
                     set(dates_to_process) - set(list(unprocessed_day))
                 )
 
+        return dates_to_process
+
+    def get_all_weeks(self, start_date, end_date):
+        start_date = dt.datetime.strptime(start_date, "%Y-%m-%d").date()
+        end_date = dt.datetime.strptime(end_date, "%Y-%m-%d").date()
+        one_day, one_week = dt.timedelta(days=1), dt.timedelta(days=7)
+        current_week_start = calendar.Calendar().monthdatescalendar(
+            start_date.year, start_date.month
+        )[0][0]
+        while True:
+            if current_week_start + one_week <= start_date:
+                current_week_start += one_week
+                continue
+            if current_week_start > end_date:
+                break
+            yield [
+                current_week_start.strftime("%Y-%m-%d"),
+                (current_week_start + one_week - one_day).strftime("%Y-%m-%d"),
+            ]
+            current_week_start += one_week
+
+    def find_dates_to_process_for_weekly_unique_addresses(
+        self, analysis: AnalysisType
+    ) -> list[str]:
+        d_start = "2021-06-09"
+        d_end = self.get_all_dates()[-1]
+
+        weeks_to_process = [*self.get_all_weeks(d_start, d_end)]
+        week_ends = [x[1] for x in weeks_to_process]
+        # all days, including current day 1 sec after midnight
+
+        # from a Mongo helper
+        rerun_state = self.get_analysis_rerun_state(analysis)
+        # all dates present for this analysis
+        all_dates_for_analysis = self.get_all_dates_for_analysis(analysis)
+
+        # this is the new day to be processed
+        # for normal days, we should only proceed to process this day
+        # when the unprocessed day is the last day in all_dates
+        # as that indicates that all_accounts has finished.
+        unprocessed_day = self.get_unprocessed_day()
+        # first check whether we need re rerun all dates
+        if rerun_state:
+            dates_to_process = weeks_to_process
+        # check if we have already done the unprocessed day
+        else:
+            dates_to_process = list(set(week_ends) - set(all_dates_for_analysis))
+            if len(dates_to_process) == 0:
+                dates_to_process = week_ends[-2:]
+            # if unprocessed_day != week_ends[-1]:
+            #     dates_to_process = list(
+            #         set(dates_to_process) - set(list(unprocessed_day))
+            #     )
+
+        weeks_to_process = [
+            [
+                f'{dt.datetime.strptime(x, "%Y-%m-%d").date() - dt.timedelta(days=6):%Y-%m-%d}',
+                x,
+            ]
+            for x in dates_to_process
+        ]
+        return weeks_to_process
+
+    def find_dates_to_process_for_nightly_statistics_for_tvl(
+        self, analysis: AnalysisType, token_address: str
+    ) -> list[str]:
+        # all days, including current day 1 sec after midnight
+        all_dates = self.get_all_dates()
+        # from a Mongo helper
+        rerun_state = self.get_analysis_rerun_state(analysis)
+        # all dates present for this analysis
+        all_dates_for_analysis_for_token = (
+            self.get_all_dates_for_analysis_tvl_for_token(analysis, token_address)
+        )
+
+        # this is the new day to be processed
+        # for normal days, we should only proceed to process this day
+        # when the unprocessed day is the last day in all_dates
+        # as that indicates that all_accounts has finished.
+        unprocessed_day = self.get_unprocessed_day()
+        # first check whether we need re rerun all dates
+        if rerun_state:
+            dates_to_process = all_dates
+        # check if we have already done the unprocessed day
+        else:
+            dates_to_process = list(
+                set(all_dates) - set(all_dates_for_analysis_for_token)
+            )
+            if unprocessed_day != all_dates[-1]:
+                dates_to_process = list(
+                    set(dates_to_process) - set(list(unprocessed_day))
+                )
+
+        dates_to_remove = self.generate_dates_from_start_date_until_end_date(
+            "2021-06-09", "2023-05-03"
+        )
+        dates_to_process = sorted(list(set(dates_to_process) - set(dates_to_remove)))
+        if len(dates_to_process) == 0:
+            # run today's date
+            dates_to_process = [
+                f"{dt.datetime.now().astimezone(dt.timezone.utc):%Y-%m-%d}"
+            ]
         return dates_to_process
 
     def find_dates_to_process_for_project(

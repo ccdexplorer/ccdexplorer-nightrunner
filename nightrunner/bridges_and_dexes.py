@@ -419,42 +419,42 @@ class BridgesAndDexes(Utils):
         else:
             return None
 
-    def calculate_tvl(
-        self,
-        reporting_subject: ReportingSubject,
-        analysis: AnalysisType,
-        dates_from_start_until_date: list[str],
-    ):
-        pipeline = [
-            {
-                "$match": {
-                    "date": {"$in": dates_from_start_until_date},
-                    "type": analysis.value,
-                    "reporting_subject": reporting_subject.value.lower(),
-                }
-            },
-            {"$sort": {"date": 1}},
-            {"$project": {"_id": 0, "date": 1, "action_types_for_day": 1}},
-        ]
+    # def calculate_tvl(
+    #     self,
+    #     reporting_subject: ReportingSubject,
+    #     analysis: AnalysisType,
+    #     dates_from_start_until_date: list[str],
+    # ):
+    #     pipeline = [
+    #         {
+    #             "$match": {
+    #                 "date": {"$in": dates_from_start_until_date},
+    #                 "type": analysis.value,
+    #                 "reporting_subject": reporting_subject.value.lower(),
+    #             }
+    #         },
+    #         {"$sort": {"date": 1}},
+    #         {"$project": {"_id": 0, "date": 1, "action_types_for_day": 1}},
+    #     ]
 
-        result = list(self.mainnet[Collections.statistics].aggregate(pipeline))
-        tvl = 0
-        for day_dict in result:
-            day_result = day_dict["action_types_for_day"]
-            if reporting_subject == ReportingSubject.Arabella:
-                for action in day_result:
-                    if action["action_type"] == "Mint":
-                        tvl += action["amount_in_usd"]
-                    if action["action_type"] == "Withdraw":
-                        tvl -= action["amount_in_usd"]
+    #     result = list(self.mainnet[Collections.statistics].aggregate(pipeline))
+    #     tvl = 0
+    #     for day_dict in result:
+    #         day_result = day_dict["action_types_for_day"]
+    #         if reporting_subject == ReportingSubject.Arabella:
+    #             for action in day_result:
+    #                 if action["action_type"] == "Mint":
+    #                     tvl += action["amount_in_usd"]
+    #                 if action["action_type"] == "Withdraw":
+    #                     tvl -= action["amount_in_usd"]
 
-            if reporting_subject == ReportingSubject.Concordex:
-                for action in day_result:
-                    if action["action_type"] == "Deposit":
-                        tvl += action["amount_in_usd"]
-                    if action["action_type"] == "Withdraw":
-                        tvl -= action["amount_in_usd"]
-        return tvl
+    #         if reporting_subject == ReportingSubject.Concordex:
+    #             for action in day_result:
+    #                 if action["action_type"] == "Deposit":
+    #                     tvl += action["amount_in_usd"]
+    #                 if action["action_type"] == "Withdraw":
+    #                     tvl -= action["amount_in_usd"]
+    #     return tvl
 
     def perform_statistics_bridges_and_dexes(self):
         """
