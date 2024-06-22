@@ -17,6 +17,7 @@ from git import Commit
 from pandas import DataFrame
 from pymongo import ReplaceOne
 from pymongo.collection import Collection
+from ccdexplorer_fundamentals.GRPCClient.CCD_Types import CCD_ContractAddress
 from ccdexplorer_fundamentals.tooter import Tooter, TooterChannel, TooterType
 
 
@@ -255,6 +256,49 @@ class Utils:
             }
         usecases_dict["all"] = {}
         return usecases_dict
+
+    def find_new_instanes_from_project_modules(self):
+        self.utilities: dict[CollectionsUtilities, Collection]
+        self.mainnet: dict[Collections, Collection]
+
+        projects_dict = {}
+        instances_to_write = []
+        result = self.mainnet[Collections.projects].find({"type": "module"})
+        for module in list(result):
+            project_id = module["project_id"]
+            module_in_collection = self.mainnet[Collections.modules].find_one(
+                {"_id": module["module_ref"]}
+            )
+
+            if module_in_collection:
+                if module_in_collection["contracts"]:
+
+                    instances = module_in_collection["contracts"]
+                    for contract_address in instances:
+                        contract_as_class = CCD_ContractAddress.from_str(
+                            contract_address
+                        )
+                        _id = f"{project_id}-address-{contract_address}"
+                        d_address = {"project_id": project_id}
+                        d_address.update(
+                            {
+                                "_id": _id,
+                                "type": "contract_address",
+                                "contract_index": contract_as_class.index,
+                                "contract_address": contract_address,
+                            }
+                        )
+
+                        instances_to_write.append(
+                            ReplaceOne(
+                                {"_id": _id},
+                                replacement=d_address,
+                                upsert=True,
+                            )
+                        )
+        if len(instances_to_write) > 0:
+            pass
+            _ = self.mainnet[Collections.projects].bulk_write(instances_to_write)
 
     def get_projects_complete(self):
         self.utilities: dict[CollectionsUtilities, Collection]
