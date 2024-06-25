@@ -10,6 +10,7 @@ from ccdexplorer_fundamentals.cis import MongoTypeTokensTag, MongoTypeTokenAddre
 from ccdexplorer_fundamentals.mongodb import (
     Collections,
     CollectionsUtilities,
+    MongoTypeInstance,
 )
 import calendar
 
@@ -52,6 +53,7 @@ class AnalysisType(Enum):
     statistics_bridges_and_dexes = "statistics_bridges_and_dexes"
     statistics_historical_exchange_rates = "statistics_historical_exchange_rates"
     statistics_transaction_types = "statistics_transaction_types"
+    statistics_transaction_count = "statistics_transaction_count"
     statistics_tvl_for_tokens = "statistics_tvl_for_tokens"
     statistics_unique_addresses_daily = "statistics_unique_addresses_daily"
     statistics_unique_addresses_weekly = "statistics_unique_addresses_weekly"
@@ -257,45 +259,66 @@ class Utils:
         usecases_dict["all"] = {}
         return usecases_dict
 
-    def find_new_instanes_from_project_modules(self):
+    def create_module_dict_from_instances(self):
+        self.mainnet: dict[Collections, Collection]
+        result_instances = [
+            MongoTypeInstance(**x) for x in self.mainnet[Collections.instances].find({})
+        ]
+        modules_dict = {}
+        for instance in result_instances:
+            if instance.v0:
+                module_ref = instance.v0.source_module
+            elif instance.v1:
+                module_ref = instance.v1.source_module
+            if module_ref in modules_dict:
+                modules_dict[module_ref].extend([instance.id])
+            else:
+                modules_dict[module_ref] = [instance.id]
+
+        return modules_dict
+
+    def find_new_instances_from_project_modules(self):
         self.utilities: dict[CollectionsUtilities, Collection]
         self.mainnet: dict[Collections, Collection]
-
+        modules_dict = self.create_module_dict_from_instances()
         projects_dict = {}
         instances_to_write = []
         result = self.mainnet[Collections.projects].find({"type": "module"})
         for module in list(result):
             project_id = module["project_id"]
-            module_in_collection = self.mainnet[Collections.modules].find_one(
-                {"_id": module["module_ref"]}
-            )
 
-            if module_in_collection:
-                if module_in_collection["contracts"]:
+            # module_in_collection = self.mainnet[Collections.insta].find_one(
+            #     {"_id": module["module_ref"]}
+            # )
 
-                    instances = module_in_collection["contracts"]
-                    for contract_address in instances:
-                        contract_as_class = CCD_ContractAddress.from_str(
-                            contract_address
-                        )
-                        _id = f"{project_id}-address-{contract_address}"
-                        d_address = {"project_id": project_id}
-                        d_address.update(
-                            {
-                                "_id": _id,
-                                "type": "contract_address",
-                                "contract_index": contract_as_class.index,
-                                "contract_address": contract_address,
-                            }
-                        )
+            # module_in_collection = self.mainnet[Collections.modules].find_one(
+            #     {"_id": module["module_ref"]}
+            # )
 
-                        instances_to_write.append(
-                            ReplaceOne(
-                                {"_id": _id},
-                                replacement=d_address,
-                                upsert=True,
-                            )
-                        )
+            # if module_in_collection:
+            # if module_in_collection["contracts"]:
+
+            instances = modules_dict.get(module["module_ref"], [])
+            for contract_address in instances:
+                contract_as_class = CCD_ContractAddress.from_str(contract_address)
+                _id = f"{project_id}-address-{contract_address}"
+                d_address = {"project_id": project_id}
+                d_address.update(
+                    {
+                        "_id": _id,
+                        "type": "contract_address",
+                        "contract_index": contract_as_class.index,
+                        "contract_address": contract_address,
+                    }
+                )
+
+                instances_to_write.append(
+                    ReplaceOne(
+                        {"_id": _id},
+                        replacement=d_address,
+                        upsert=True,
+                    )
+                )
         if len(instances_to_write) > 0:
             pass
             _ = self.mainnet[Collections.projects].bulk_write(instances_to_write)

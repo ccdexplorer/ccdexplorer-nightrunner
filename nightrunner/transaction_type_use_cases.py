@@ -36,7 +36,7 @@ class TransactionTypes(Utils):
         """
         analysis = AnalysisType.statistics_transaction_types
         # usecases_dict = self.get_usecases_complete()
-        self.find_new_instanes_from_project_modules()
+        self.find_new_instances_from_project_modules()
         projects_dict = self.get_projects_complete()
         self.all_days: dict = self.get_all_dates_with_info()
 
