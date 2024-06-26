@@ -678,9 +678,10 @@ class Utils:
     ) -> list[str]:
         all_dates = self.get_all_dates()
         dates_to_process = all_dates
-        dates_to_process.append(
-            f"{dt.datetime.now().astimezone(dt.timezone.utc):%Y-%m-%d}"
-        )
+        # only do days when they are done.
+        # dates_to_process.append(
+        #     f"{dt.datetime.now().astimezone(dt.timezone.utc):%Y-%m-%d}"
+        # )
         return dates_to_process
 
     def get_df_from_git(self, commit: Commit) -> DataFrame:
