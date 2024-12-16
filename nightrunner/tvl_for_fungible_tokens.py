@@ -77,7 +77,7 @@ class TVLForTokens(Utils):
                         if event.tag == 254:
                             result = mintEvent(**event.result)
                         elif event.tag == 253:
-                            burnEvent(**event.result)
+                            result = burnEvent(**event.result)
                         else:
                             exit("huh")
                         if (token_amount := int(result.token_amount)) > 0:
