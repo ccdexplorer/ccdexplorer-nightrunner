@@ -39,7 +39,10 @@ class Classified(Utils):
             d_date = self.get_date_from_git(commit)
 
             if d_date in dates_to_process:
-                del dates_to_process_count_down[d_date]
+                try:
+                    del dates_to_process_count_down[d_date]
+                except KeyError:
+                    pass
                 df = self.get_df_from_git(commit)
                 _id = f"{d_date}-{analysis.value}"
                 console.log(_id)
