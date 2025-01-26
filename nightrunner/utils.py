@@ -332,9 +332,7 @@ class Utils:
         result = self.utilities[CollectionsUtilities.projects].find({})
         for project in list(result):
             project_addresses = list(
-                self.mainnet[Collections.projects].find(
-                    {"project_id": project["project_id"]}
-                )
+                self.mainnet[Collections.projects].find({"project_id": project["_id"]})
             )
             mainnet_project_addresses = [
                 x["account_address"]
@@ -356,7 +354,7 @@ class Utils:
             #         {"usecase_id": usecase["usecase_id"]}
             #     )
             # ]
-            projects_dict[project["project_id"]] = {
+            projects_dict[project["_id"]] = {
                 "mainnet_addresses": mainnet_project_addresses,
                 # "testnet_addresses": testnet_usecase_addresses,
             }
@@ -623,13 +621,13 @@ class Utils:
             #         set(dates_to_process) - set(list(unprocessed_day))
             #     )
 
-        weeks_to_process = [
-            [
-                f'{dt.datetime.strptime(x, "%Y-%m-%d").date() - dt.timedelta(days=6):%Y-%m-%d}',
-                x,
+            weeks_to_process = [
+                [
+                    f'{dt.datetime.strptime(x, "%Y-%m-%d").date() - dt.timedelta(days=6):%Y-%m-%d}',
+                    x,
+                ]
+                for x in dates_to_process
             ]
-            for x in dates_to_process
-        ]
         return weeks_to_process
 
     def find_dates_to_process_for_nightly_statistics_for_tvl(
