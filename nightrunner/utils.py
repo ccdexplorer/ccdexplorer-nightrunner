@@ -674,8 +674,7 @@ class Utils:
 
             if is_last_week:
                 week_end = end_date
-                ends_on_sunday = end_date.weekday() == 6
-                status = "complete" if ends_on_sunday else "incomplete"
+                status = "incomplete"  # Always incomplete for last week
             else:
                 week_end = current_week_start + one_week - one_day
                 status = "complete"
