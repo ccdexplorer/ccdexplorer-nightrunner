@@ -35,6 +35,7 @@ from .transaction_fees_over_time import TransactionFees as _transaction_fees
 from .transaction_type_use_cases import TransactionTypes as _transaction_types
 from .tvl_for_fungible_tokens import TVLForTokens as _tvl_for_tokens
 from .unique_addresses import UniqueAddresses as _unique_addresses
+from .unique_addresses_v2 import UniqueAddressesV2 as _unique_addresses_v2
 
 urllib3.disable_warnings()
 console = Console()
@@ -60,6 +61,7 @@ class NightRunner(
     _transaction_types,
     _tvl_for_tokens,
     _unique_addresses,
+    _unique_addresses_v2
 ):
     def __init__(
         self,

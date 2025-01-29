@@ -6,7 +6,7 @@ from nightrunner import NightRunner
 
 from apscheduler import AsyncScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-
+from apscheduler.triggers.cron import CronTrigger
 from ccdexplorer_fundamentals.GRPCClient import GRPCClient
 
 from ccdexplorer_fundamentals.GRPCClient.CCD_Types import *  # noqa: F403
@@ -96,6 +96,10 @@ async def main():
         await scheduler.add_schedule(
             night_runner.perform_statistics_unique_addresses,
             IntervalTrigger(seconds=30 * 60),
+        )
+        await scheduler.add_schedule(
+            night_runner.perform_statistics_unique_addresses_v2,
+            CronTrigger(hour=0, minute=15),
         )
         await scheduler.run_until_stopped()
 

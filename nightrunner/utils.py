@@ -59,6 +59,10 @@ class AnalysisType(Enum):
     statistics_unique_addresses_weekly = "statistics_unique_addresses_weekly"
     statistics_unique_addresses_monthly = "statistics_unique_addresses_monthly"
 
+    statistics_unique_addresses_v2_daily = "statistics_unique_addresses_v2_daily"
+    statistics_unique_addresses_v2_weekly = "statistics_unique_addresses_v2_weekly"
+    statistics_unique_addresses_v2_monthly = "statistics_unique_addresses_v2_monthly"
+
 
 class Utils:
     def have_we_missed_commits(
@@ -406,11 +410,58 @@ class Utils:
             ]
         )
 
+    def check_date_completeness(self) -> tuple[bool, list[str]]:
+        """
+        Checks if all dates between genesis (2021-06-09) and yesterday are present in blocks_per_day collection.
+
+        Returns:
+            tuple[bool, list[str]]: (is_complete, missing_dates)
+        """
+        import datetime as dt
+        from datetime import timedelta
+
+        # Generate expected dates
+        genesis = dt.datetime(2021, 6, 9)
+        yesterday = dt.datetime.now().date() - timedelta(days=1)
+        expected_dates = set()
+
+        current = genesis
+        while current.date() <= yesterday:
+            expected_dates.add(current.strftime("%Y-%m-%d"))
+            current += timedelta(days=1)
+
+        # Get actual dates from collection
+        actual_dates = set(self.get_all_dates())
+
+        # Find missing dates
+        missing_dates = sorted(list(expected_dates - actual_dates))
+
+        return (len(missing_dates) == 0, missing_dates)
+
     def get_all_dates(self) -> list[str]:
-        return [x["date"] for x in self.mainnet[Collections.blocks_per_day].find({})]
+        return [
+            x["date"]
+            for x in self.mainnet[Collections.blocks_per_day].find({}).sort("date", 1)
+        ]
 
     def get_all_dates_with_info(self) -> list[str]:
         return {x["date"]: x for x in self.mainnet[Collections.blocks_per_day].find({})}
+
+    def get_start_block_from_date_for_unique(self, date: str) -> str:
+        self.mainnet: dict[Collections, Collection]
+        result = self.mainnet[Collections.blocks_per_day].find_one({"date": date})
+        if result:
+            return result["height_for_first_block"]
+        else:
+            return 0
+
+    def get_end_block_from_date_for_unique(self, date: str) -> str:
+        self.mainnet: dict[Collections, Collection]
+        result = self.mainnet[Collections.blocks_per_day].find_one({"date": date})
+        if result:
+            return result["height_for_last_block"]
+        else:
+            return 1_000_000_000
 
     def get_start_end_block_from_date(self, date: str) -> str:
         self.mainnet: dict[Collections, Collection]
@@ -465,12 +516,21 @@ class Utils:
 
         return date_range
 
-    def get_all_dates_for_analysis(self, analysis: AnalysisType) -> list[str]:
+    def get_all_dates_for_analysis(
+        self, analysis: AnalysisType, complete: bool = False
+    ) -> list[str]:
+        pipeline = [
+            {"$match": {"type": analysis.value}},
+        ]
+
+        if complete:
+            pipeline.append({"$match": {"complete": True}})
+
+        pipeline.extend([{"$sort": {"date": -1}}, {"$project": {"date": 1, "_id": 0}}])
+
         return [
-            x["date"]
-            for x in self.mainnet[Collections.statistics]
-            .find({"type": analysis.value})
-            .sort({"date": -1})
+            doc["date"]
+            for doc in self.mainnet[Collections.statistics].aggregate(pipeline)
         ]
 
     def get_all_dates_for_analysis_tvl_for_token(
@@ -549,25 +609,52 @@ class Utils:
         # from a Mongo helper
         rerun_state = self.get_analysis_rerun_state(analysis)
         # all dates present for this analysis
-        all_dates_for_analysis = self.get_all_dates_for_analysis(analysis)
+        all_dates_for_analysis = self.get_all_dates_for_analysis(
+            analysis, complete=False
+        )
 
-        # this is the new day to be processed
-        # for normal days, we should only proceed to process this day
-        # when the unprocessed day is the last day in all_dates
-        # as that indicates that all_accounts has finished.
-        unprocessed_day = self.get_unprocessed_day()
         # first check whether we need re rerun all dates
         if rerun_state:
             dates_to_process = all_dates
         # check if we have already done the unprocessed day
         else:
             dates_to_process = list(set(all_dates) - set(all_dates_for_analysis))
-            if unprocessed_day != all_dates[-1]:
-                dates_to_process = list(
-                    set(dates_to_process) - set(list(unprocessed_day))
-                )
 
         return dates_to_process
+
+    def get_all_months(self, start_date, end_date):
+        start_date = dt.datetime.strptime(start_date, "%Y-%m-%d").date()
+        end_date = dt.datetime.strptime(end_date, "%Y-%m-%d").date()
+
+        current_month_start = start_date.replace(day=1)
+
+        while current_month_start <= end_date:
+            if current_month_start.month == 12:
+                next_month = current_month_start.replace(
+                    year=current_month_start.year + 1, month=1
+                )
+            else:
+                next_month = current_month_start.replace(
+                    month=current_month_start.month + 1
+                )
+            last_day_of_month = next_month - dt.timedelta(days=1)
+
+            is_last_month = last_day_of_month >= end_date
+
+            if is_last_month:
+                month_end = end_date
+                status = "incomplete"  # Always incomplete for last month
+            else:
+                month_end = last_day_of_month
+                status = "complete"
+
+            yield [
+                current_month_start.strftime("%Y-%m-%d"),
+                month_end.strftime("%Y-%m-%d"),
+                status,
+            ]
+
+            current_month_start = next_month
 
     def get_all_weeks(self, start_date, end_date):
         start_date = dt.datetime.strptime(start_date, "%Y-%m-%d").date()
@@ -582,53 +669,106 @@ class Utils:
                 continue
             if current_week_start > end_date:
                 break
+
+            is_last_week = current_week_start + one_week > end_date
+
+            if is_last_week:
+                week_end = end_date
+                ends_on_sunday = end_date.weekday() == 6
+                status = "complete" if ends_on_sunday else "incomplete"
+            else:
+                week_end = current_week_start + one_week - one_day
+                status = "complete"
+
             yield [
                 current_week_start.strftime("%Y-%m-%d"),
-                (current_week_start + one_week - one_day).strftime("%Y-%m-%d"),
+                week_end.strftime("%Y-%m-%d"),
+                status,
             ]
             current_week_start += one_week
 
-    def find_dates_to_process_for_weekly_unique_addresses(
-        self, analysis: AnalysisType
+    def get_week_boundaries(dates):
+        """
+        Get start and end dates for weeks from a list of dates.
+
+        Args:
+            dates: List of dates in YYYY-MM-DD format
+
+        Returns:
+            List of tuples (start_date, end_date) for each week
+        """
+
+        # Convert to dataframe with datetime index
+        df = pd.DataFrame({"date": pd.to_datetime(dates)})
+
+        # Group by week and get first/last date
+        weekly_groups = df.groupby(pd.Grouper(key="date", freq="W"))
+
+        # Extract start and end dates
+        week_boundaries = []
+        for _, group in weekly_groups:
+            if not group.empty:
+                start_date = group["date"].min().strftime("%Y-%m-%d")
+                end_date = group["date"].max().strftime("%Y-%m-%d")
+                week_boundaries.append((start_date, end_date))
+
+        return week_boundaries
+
+    def find_dates_to_process_for_monthly_unique_addresses(
+        self, analysis: AnalysisType, complete: bool = True
     ) -> list[str]:
         d_start = "2021-06-09"
         d_end = self.get_all_dates()[-1]
 
-        weeks_to_process = [*self.get_all_weeks(d_start, d_end)]
-        week_ends = [x[1] for x in weeks_to_process]
+        months_to_process = [*self.get_all_months(d_start, d_end)]
+        month_starts = [x[0] for x in months_to_process]
         # all days, including current day 1 sec after midnight
 
         # from a Mongo helper
         rerun_state = self.get_analysis_rerun_state(analysis)
         # all dates present for this analysis
-        all_dates_for_analysis = self.get_all_dates_for_analysis(analysis)
+        all_dates_for_analysis = self.get_all_dates_for_analysis(analysis, complete)
 
-        # this is the new day to be processed
-        # for normal days, we should only proceed to process this day
-        # when the unprocessed day is the last day in all_dates
-        # as that indicates that all_accounts has finished.
-        unprocessed_day = self.get_unprocessed_day()
         # first check whether we need re rerun all dates
         if rerun_state:
-            dates_to_process = weeks_to_process
+            dates_to_process = months_to_process
         # check if we have already done the unprocessed day
         else:
-            dates_to_process = list(set(week_ends) - set(all_dates_for_analysis))
-            if len(dates_to_process) == 0:
-                dates_to_process = week_ends[-2:]
-            # if unprocessed_day != week_ends[-1]:
-            #     dates_to_process = list(
-            #         set(dates_to_process) - set(list(unprocessed_day))
-            #     )
-
-            weeks_to_process = [
-                [
-                    f'{dt.datetime.strptime(x, "%Y-%m-%d").date() - dt.timedelta(days=6):%Y-%m-%d}',
-                    x,
-                ]
-                for x in dates_to_process
+            start_dates_to_process = list(
+                set(month_starts) - set(all_dates_for_analysis)
+            )
+            dates_to_process = [
+                x for x in months_to_process if x[0] in start_dates_to_process
             ]
-        return weeks_to_process
+
+        return dates_to_process
+
+    def find_dates_to_process_for_weekly_unique_addresses(
+        self, analysis: AnalysisType, complete: bool = True
+    ) -> list[str]:
+        d_start = "2021-06-09"
+        d_end = self.get_all_dates()[-1]
+
+        weeks_to_process = [*self.get_all_weeks(d_start, d_end)]
+        week_starts = [x[0] for x in weeks_to_process]
+        # all days, including current day 1 sec after midnight
+
+        # from a Mongo helper
+        rerun_state = self.get_analysis_rerun_state(analysis)
+        # all dates present for this analysis
+        all_dates_for_analysis = self.get_all_dates_for_analysis(analysis, complete)
+
+        if rerun_state:
+            dates_to_process = weeks_to_process
+        else:
+            start_dates_to_process = list(
+                set(week_starts) - set(all_dates_for_analysis)
+            )
+            dates_to_process = [
+                x for x in weeks_to_process if x[0] in start_dates_to_process
+            ]
+
+        return dates_to_process
 
     def find_dates_to_process_for_nightly_statistics_for_tvl(
         self, analysis: AnalysisType, token_address: str
